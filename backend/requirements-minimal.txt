@@ -1,0 +1,28 @@
+# FastAPI and web framework
+fastapi
+uvicorn[standard]
+python-multipart
+python-dotenv
+
+# Database and ORM
+sqlalchemy
+asyncpg
+
+# Data processing and validation
+pydantic
+pydantic-settings
+
+# HTTP client
+httpx
+aiohttp
+
+# Utilities
+python-dateutil
+click
+aiofiles
+
+# Monitoring and logging
+structlog
+
+# WebSocket support
+websockets
