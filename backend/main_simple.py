@@ -1,15 +1,16 @@
+"""
+Simplified Main FastAPI Application for GameEdge Intelligence Platform
+
+This is a simplified version that avoids complex dependencies and gets the basic server running.
+"""
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 import structlog
 from datetime import datetime
-
-from app.core.config import settings
-from app.core.database import init_db, close_db
-from app.api.v1 import sentiment_simple, customers, analytics, data_pipeline
 
 # Configure structured logging
 structlog.configure(
@@ -40,10 +41,6 @@ async def lifespan(app: FastAPI):
     logger.info("Starting GameEdge Intelligence API")
     
     try:
-        # Initialize database
-        await init_db()
-        logger.info("Database initialized successfully")
-        
         # Initialize ML models (this happens automatically in the ML modules)
         logger.info("ML models initialization completed")
         
@@ -55,16 +52,11 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down GameEdge Intelligence API")
-    try:
-        await close_db()
-        logger.info("Database connection closed")
-    except Exception as e:
-        logger.error(f"Error during shutdown: {e}")
 
 
 # Create FastAPI application
 app = FastAPI(
-    title=settings.PROJECT_NAME,
+    title="GameEdge Intelligence",
     description="""
     GameEdge Intelligence - Advanced Sports Betting Analytics Platform
     
@@ -75,18 +67,9 @@ app = FastAPI(
     * **Real-time Analytics**: Live dashboard with comprehensive business intelligence
     * **ML Pipeline**: Automated model training and inference
     
-    ## Datasets
-    
-    * 1.6M+ pre-labeled tweets for sentiment analysis
-    * 525K+ transaction records for customer behavior modeling
-    * 500K+ sports matches with comprehensive odds data
-    * 50K+ synthetic customer profiles with realistic demographics
-    
     ## API Endpoints
     
-    * `/api/v1/sentiment/*` - Sentiment analysis endpoints
-    * `/api/v1/customers/*` - Customer segmentation and analytics
-    * `/api/v1/analytics/*` - Business intelligence and reporting
+    * `/health` - Health check endpoint
     * `/docs` - Interactive API documentation
     """,
     version="1.0.0",
@@ -99,15 +82,10 @@ app = FastAPI(
 # Add middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=["http://localhost:3000", "http://localhost:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
-
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["*"]  # In production, restrict to specific domains
 )
 
 
@@ -161,40 +139,8 @@ async def root():
             "Customer Segmentation System",
             "Real-time Analytics Dashboard",
             "Advanced ML Pipeline"
-        ],
-        "dataset_scale": {
-            "sentiment_tweets": "1.6M+",
-            "transaction_records": "525K+",
-            "sports_matches": "500K+",
-            "customer_profiles": "50K+"
-        }
+        ]
     }
-
-
-# Include API routers
-app.include_router(
-    sentiment_simple.router,
-    prefix=f"{settings.API_V1_STR}/sentiment",
-    tags=["sentiment-analysis"]
-)
-
-app.include_router(
-    customers.router,
-    prefix=f"{settings.API_V1_STR}/customers",
-    tags=["customer-segmentation"]
-)
-
-app.include_router(
-    analytics.router,
-    prefix=f"{settings.API_V1_STR}/analytics",
-    tags=["analytics-dashboard"]
-)
-
-app.include_router(
-    data_pipeline.router,
-    prefix=f"{settings.API_V1_STR}/data-pipeline",
-    tags=["data-pipeline"]
-)
 
 
 # Startup event
@@ -206,11 +152,8 @@ async def startup_event():
     # Log configuration
     logger.info(
         "Application configuration",
-        environment=settings.ENVIRONMENT,
-        debug=settings.DEBUG,
-        database_url=settings.DATABASE_URL.split("@")[-1] if "@" in settings.DATABASE_URL else "configured",
-        ml_model_path=settings.ML_MODEL_PATH,
-        cors_origins=settings.BACKEND_CORS_ORIGINS
+        environment="development",
+        debug=True
     )
 
 
@@ -225,10 +168,10 @@ if __name__ == "__main__":
     import uvicorn
     
     uvicorn.run(
-        "main:app",
+        "main_simple:app",
         host="0.0.0.0",
         port=8000,
-        reload=settings.DEBUG,
-        log_level=settings.LOG_LEVEL.lower(),
+        reload=True,
+        log_level="info",
         access_log=True
     )

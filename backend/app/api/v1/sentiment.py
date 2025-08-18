@@ -6,7 +6,24 @@ import logging
 
 from ...core.database import get_db
 from ...ml.sentiment_analyzer import sentiment_analyzer
-from ...models import Interaction, User, SentimentLabel, InteractionType
+from ...models import Interaction, User
+from enum import Enum
+
+# Pydantic enums for API responses
+class SentimentLabelAPI(str, Enum):
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+    NEUTRAL = "neutral"
+    MIXED = "mixed"
+
+class InteractionTypeAPI(str, Enum):
+    REVIEW = "review"
+    FEEDBACK = "feedback"
+    SUPPORT_TICKET = "support_ticket"
+    SOCIAL_MEDIA = "social_media"
+    APP_REVIEW = "app_review"
+    BET_COMMENT = "bet_comment"
+    GENERAL = "general"
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +33,7 @@ router = APIRouter()
 class SentimentAnalysisRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=10000, description="Text to analyze")
     user_id: Optional[int] = Field(None, description="User ID for context")
-    interaction_type: Optional[InteractionType] = Field(None, description="Type of interaction")
+    interaction_type: Optional[InteractionTypeAPI] = Field(None, description="Type of interaction")
     source: Optional[str] = Field("api", description="Source of the text")
     related_bet_id: Optional[int] = Field(None, description="Related bet ID if applicable")
     sport: Optional[str] = Field(None, description="Sport context")
@@ -27,7 +44,7 @@ class SentimentAnalysisRequest(BaseModel):
 
 
 class SentimentAnalysisResponse(BaseModel):
-    sentiment_label: SentimentLabel
+    sentiment_label: SentimentLabelAPI
     sentiment_score: float = Field(..., ge=-1.0, le=1.0)
     confidence_score: float = Field(..., ge=0.0, le=1.0)
     aspects: Dict[str, float]
@@ -124,7 +141,7 @@ async def analyze_sentiment_batch(
                 logger.error(f"Failed to analyze text: {e}")
                 # Create error response for failed analysis
                 error_result = {
-                    "sentiment_label": SentimentLabel.NEUTRAL,
+                    "sentiment_label": SentimentLabelAPI.NEUTRAL,
                     "sentiment_score": 0.0,
                     "confidence_score": 0.0,
                     "aspects": {},
@@ -241,14 +258,17 @@ async def store_interaction(
     This function runs asynchronously to avoid blocking the API response.
     """
     try:
+        # Convert API enums to SQLAlchemy enums
+        from ...models import SentimentLabel, InteractionType
+        
         # Create new interaction record
         interaction = Interaction(
             user_id=request.user_id,
-            interaction_type=request.interaction_type or InteractionType.GENERAL,
+            interaction_type=request.interaction_type.value if request.interaction_type else InteractionType.GENERAL,
             title=f"Sentiment Analysis - {result.get('sentiment_label', 'unknown')}",
             content=request.text,
             source=request.source,
-            sentiment_label=result.get('sentiment_label'),
+            sentiment_label=result.get('sentiment_label').value if result.get('sentiment_label') else None,
             sentiment_score=result.get('sentiment_score'),
             confidence_score=result.get('confidence_score'),
             aspects=result.get('aspects', {}),
